@@ -4,6 +4,7 @@ import {
   ConfirmDeleteDialogContent,
 } from "@bb/shared-ui/confirm-delete-dialog";
 import { formatChildThreadCount } from "@/lib/child-thread-copy";
+import { getThreadDisplayTitle } from "@/lib/thread-title";
 
 export interface ThreadDeleteDialogTarget {
   threads: readonly Thread[];
@@ -62,6 +63,23 @@ export function ThreadDeleteDialogContent<
       title={`Delete ${label}?`}
       description={
         <>
+          <span
+            role="list"
+            aria-label="Threads to delete"
+            tabIndex={0}
+            className="mb-3 block max-h-48 space-y-2 overflow-y-auto"
+          >
+            {target.threads.map((thread) => (
+              <span key={thread.id} role="listitem" className="block">
+                <span className="block break-words font-semibold text-foreground">
+                  {getThreadDisplayTitle(thread)}
+                </span>
+                <span className="block break-all font-mono text-xs">
+                  {thread.id}
+                </span>
+              </span>
+            ))}
+          </span>
           {target.childThreadCount ? (
             <>
               {single ? "Its" : "Their"}{" "}
