@@ -9,7 +9,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest]
-        ref: [63df380a3f1cad3d9b939d145e5b3363130beda5]
+        ref: [63df380a3f1cad3d9b939d145e5b3363130beda5, 7850718c486507c86eccb7a7290f3301bf6d70c3]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     permissions:
@@ -36,9 +36,14 @@ jobs:
         shell: bash
         working-directory: target
         run: pnpm exec turbo run build --filter=bb-app --output-logs=errors-only
-      - name: Measure
+      - name: Measure with no agents installed
         shell: bash
         run: |
           mkdir -p out
           node scratch/qa/measure.mjs target/packages/bb-app ${{ matrix.ref }}-fresh 5 fresh out
-          node scratch/qa/measure.mjs target/packages/bb-app ${{ matrix.ref }}-user 3 user out
+      - name: Install Claude Code and Codex
+        shell: bash
+        run: npm install --global @anthropic-ai/claude-code @openai/codex
+      - name: Measure with Claude Code and Codex installed
+        shell: bash
+        run: node scratch/qa/measure.mjs target/packages/bb-app ${{ matrix.ref }}-agents 5 user out

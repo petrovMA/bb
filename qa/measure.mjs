@@ -133,6 +133,18 @@ async function oneRun(index) {
       }
       await writeFile(join(outDir, `${label}-${index}-healthlog.json`), JSON.stringify(lines, null, 1));
     } catch {}
+    try {
+      const { readdir } = await import("node:fs/promises");
+      const qa = [];
+      for (const f of await readdir(logs)) {
+        const raw = await readFile(join(logs, f), "utf8").catch(() => "");
+        for (const l of raw.split("\n")) {
+          const m = l.match(/QATIME (.*)/);
+          if (m) qa.push(m[1].replace(/\s(\d{13})\b/, (_, t) => ` @${Number(t) - (readyAt ?? t0)}`));
+        }
+      }
+      if (qa.length) await writeFile(join(outDir, `${label}-${index}-qatime.txt`), qa.join("\n"));
+    } catch {}
     for (let i = 0; i < 20; i += 1) {
       try { await rm(root, { recursive: true, force: true }); break; } catch { await sleep(250); }
     }
