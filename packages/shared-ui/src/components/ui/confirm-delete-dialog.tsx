@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Button, type ButtonProps } from "./button";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
 interface ConfirmDeleteDialogContentProps {
   title: string;
   description: ReactNode;
+  children?: ReactNode;
   confirmLabel: string;
   pending: boolean;
   confirmDisabled?: boolean;
@@ -23,6 +24,7 @@ interface ConfirmDeleteDialogContentProps {
 export function ConfirmDeleteDialogContent({
   title,
   description,
+  children,
   confirmLabel,
   pending,
   confirmDisabled = false,
@@ -34,6 +36,7 @@ export function ConfirmDeleteDialogContent({
     <>
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
+        {children}
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogFooter>
@@ -41,6 +44,7 @@ export function ConfirmDeleteDialogContent({
           <Button
             type="button"
             variant="outline"
+            data-confirm-delete-cancel
             size={size}
             disabled={pending}
             onClick={onCancel}
@@ -68,6 +72,7 @@ interface ConfirmDeleteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
+  onOpenAutoFocus?: ComponentProps<typeof DialogContent>["onOpenAutoFocus"];
 }
 
 export function ConfirmDeleteDialog({
@@ -76,10 +81,11 @@ export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   children,
+  onOpenAutoFocus,
 }: ConfirmDeleteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={modal}>
-      <DialogContent className={className}>
+      <DialogContent className={className} onOpenAutoFocus={onOpenAutoFocus}>
         {open ? children : null}
       </DialogContent>
     </Dialog>

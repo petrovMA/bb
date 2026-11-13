@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Thread } from "@bb/domain";
 import {
   ConfirmDeleteDialog,
@@ -25,7 +26,22 @@ export function ThreadDeleteDialog<Target extends ThreadDeleteDialogTarget>({
   onDelete,
 }: ThreadDeleteDialogProps<Target>) {
   return (
-    <ConfirmDeleteDialog open={target !== null} onOpenChange={onOpenChange}>
+    <ConfirmDeleteDialog
+      open={target !== null}
+      onOpenChange={onOpenChange}
+      onOpenAutoFocus={(event) => {
+        const cancel =
+          event.target instanceof HTMLElement
+            ? event.target.querySelector<HTMLButtonElement>(
+                "[data-confirm-delete-cancel]",
+              )
+            : null;
+        if (cancel && !cancel.disabled) {
+          event.preventDefault();
+          cancel.focus();
+        }
+      }}
+    >
       {target ? (
         <ThreadDeleteDialogContent
           target={target}
@@ -35,6 +51,48 @@ export function ThreadDeleteDialog<Target extends ThreadDeleteDialogTarget>({
         />
       ) : null}
     </ConfirmDeleteDialog>
+  );
+}
+
+function ThreadDeleteTargetList({ threads }: { threads: readonly Thread[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current;
+    const list = listRef.current;
+    if (!scroll || !list) return;
+    const measure = () =>
+      setScrollable(scroll.scrollHeight > scroll.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroll);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [threads]);
+
+  return (
+    <div
+      ref={scrollRef}
+      role="region"
+      aria-label="Scroll selected threads"
+      tabIndex={scrollable ? 0 : -1}
+      className="max-h-48 overflow-y-auto"
+    >
+      <ul ref={listRef} aria-label="Threads to delete" className="space-y-2">
+        {threads.map((thread) => (
+          <li key={thread.id}>
+            <span className="block break-words font-semibold text-foreground">
+              {getThreadDisplayTitle(thread)}
+            </span>
+            <span className="block break-all font-mono text-xs text-muted-foreground">
+              {thread.id}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -63,23 +121,6 @@ export function ThreadDeleteDialogContent<
       title={`Delete ${label}?`}
       description={
         <>
-          <span
-            role="list"
-            aria-label="Threads to delete"
-            tabIndex={0}
-            className="mb-3 block max-h-48 space-y-2 overflow-y-auto"
-          >
-            {target.threads.map((thread) => (
-              <span key={thread.id} role="listitem" className="block">
-                <span className="block break-words font-semibold text-foreground">
-                  {getThreadDisplayTitle(thread)}
-                </span>
-                <span className="block break-all font-mono text-xs">
-                  {thread.id}
-                </span>
-              </span>
-            ))}
-          </span>
           {target.childThreadCount ? (
             <>
               {single ? "Its" : "Their"}{" "}
@@ -96,6 +137,8 @@ export function ThreadDeleteDialogContent<
       pending={pending}
       onConfirm={() => onDelete(target)}
       onCancel={() => onOpenChange(false)}
-    />
+    >
+      <ThreadDeleteTargetList threads={target.threads} />
+    </ConfirmDeleteDialogContent>
   );
 }

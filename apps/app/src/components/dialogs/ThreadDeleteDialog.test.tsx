@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -11,7 +12,10 @@ import { makeThread } from "@bb/test-helpers/domain-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadDeleteDialog } from "./ThreadDeleteDialog";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("ThreadDeleteDialog", () => {
   it("identifies the selected thread, including its full title and ID", () => {
@@ -31,7 +35,9 @@ describe("ThreadDeleteDialog", () => {
     );
 
     const targets = screen.getByRole("list", { name: "Threads to delete" });
-    expect(within(targets).getByText(thread.title!)).toBeTruthy();
+    expect(
+      within(targets).getByText("Investigate the sidebar confirmation dialog"),
+    ).toBeTruthy();
     expect(within(targets).getByText(thread.id)).toBeTruthy();
     expect(screen.queryByText("Original prompt")).toBeNull();
   });
@@ -78,10 +84,12 @@ describe("ThreadDeleteDialog", () => {
 
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(2);
-    threads.forEach((thread, index) => {
-      expect(within(items[index]!).getByText("Same title")).toBeTruthy();
-      expect(within(items[index]!).getByText(thread.id)).toBeTruthy();
-    });
+    for (const item of items) {
+      expect(within(item).getByText("Same title")).toBeTruthy();
+    }
+    for (const thread of threads) {
+      expect(screen.getByText(thread.id)).toBeTruthy();
+    }
     expect(screen.getByRole("dialog").textContent).toContain(
       "Their 3 child threads will be deleted too. This action cannot be undone.",
     );
@@ -133,8 +141,89 @@ describe("ThreadDeleteDialog", () => {
       />,
     );
 
-    expect(screen.getByText(thread.title!)).toBeTruthy();
+    expect(screen.getByText("Pending deletion")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Delete thread" }));
     expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("keeps initial focus on Cancel and excludes target names from the announced warning", () => {
+    const threads = Array.from({ length: 60 }, (_, index) =>
+      makeThread({
+        id: `thr_bulk_${index}`,
+        title: `Selected thread ${index}`,
+      }),
+    );
+    render(
+      <ThreadDeleteDialog
+        target={{ threads, childThreadCount: 3 }}
+        pending={false}
+        onOpenChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Cancel" }),
+    );
+    const dialog = screen.getByRole("dialog");
+    const descriptionIds =
+      dialog.getAttribute("aria-describedby")?.split(/\s+/) ?? [];
+    expect(descriptionIds.length).toBeGreaterThan(0);
+    const description = descriptionIds
+      .map((id) => document.getElementById(id)?.textContent)
+      .join(" ");
+    expect(description).toContain(
+      "Their 3 child threads will be deleted too. This action cannot be undone.",
+    );
+    expect(description).not.toContain("Selected thread");
+    expect(description).not.toContain("thr_bulk_");
+    expect(
+      within(
+        screen.getByRole("list", { name: "Threads to delete" }),
+      ).getAllByRole("listitem"),
+    ).toHaveLength(60);
+  });
+
+  it("makes only an overflowing target list tabbable and keeps Cancel focused", () => {
+    const measureCallbacks: (() => void)[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          measureCallbacks.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    render(
+      <ThreadDeleteDialog
+        target={{ threads: [makeThread({ title: "A long target" })] }}
+        pending={false}
+        onOpenChange={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const region = screen.getByRole("region", {
+      name: "Scroll selected threads",
+    });
+    expect(region.tabIndex).toBe(-1);
+    Object.defineProperties(region, {
+      scrollHeight: { configurable: true, value: 500 },
+      clientHeight: { configurable: true, value: 192 },
+    });
+    act(() => measureCallbacks.forEach((measure) => measure()));
+    expect(region.tabIndex).toBe(0);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Cancel" }),
+    );
+
+    Object.defineProperty(region, "clientHeight", {
+      configurable: true,
+      value: 500,
+    });
+    act(() => measureCallbacks.forEach((measure) => measure()));
+    expect(region.tabIndex).toBe(-1);
   });
 });

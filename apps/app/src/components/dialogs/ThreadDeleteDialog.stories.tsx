@@ -1,4 +1,8 @@
-import { ThreadDeleteDialogContent } from "./ThreadDeleteDialog";
+import { useState } from "react";
+import {
+  ThreadDeleteDialog,
+  ThreadDeleteDialogContent,
+} from "./ThreadDeleteDialog";
 import { makeThread } from "../../../.ladle/story-fixtures";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import { DialogStage } from "../../../.ladle/story-dialog-stage";
@@ -15,6 +19,40 @@ const parentThread = makeThread({
   title: "Frontend Parent",
   titleFallback: "Frontend Parent",
 });
+
+const demoTargets = Array.from({ length: 50 }, (_, index) =>
+  makeThread({
+    id: `thr_demo_${index}`,
+    title: `Demo thread ${index + 1}: deployment checklist`,
+  }),
+);
+
+export function KeyboardAndBulk() {
+  const [threads, setThreads] = useState<typeof demoTargets | null>(null);
+  return (
+    <StoryCard>
+      <StoryRow label="Interactive confirmation with synthetic targets">
+        <button
+          type="button"
+          onClick={() => setThreads(demoTargets.slice(0, 1))}
+        >
+          Preview one thread
+        </button>
+        <button type="button" onClick={() => setThreads(demoTargets)}>
+          Preview 50 threads
+        </button>
+      </StoryRow>
+      <ThreadDeleteDialog
+        target={threads ? { threads, childThreadCount: 3 } : null}
+        pending={false}
+        onOpenChange={(open) => {
+          if (!open) setThreads(null);
+        }}
+        onDelete={() => setThreads(null)}
+      />
+    </StoryCard>
+  );
+}
 
 export function Thread() {
   return (
