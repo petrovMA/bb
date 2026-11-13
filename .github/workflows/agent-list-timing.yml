@@ -1,0 +1,44 @@
+name: Agent list timing (scratch)
+on:
+  push:
+    branches:
+      - qa-scratch/agent-list-timing
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+        ref: [63df380a3f1cad3d9b939d145e5b3363130beda5]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: scratch
+      - uses: actions/checkout@v4
+        with:
+          repository: get-bb/bb
+          ref: ${{ matrix.ref }}
+          path: target
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+      - run: npm install --global pnpm@9.15.0 --ignore-scripts
+      - name: Install
+        shell: bash
+        working-directory: target
+        run: bash .github/actions/setup-workspace/install-dependencies.sh --ignore-scripts --filter '!@bb/mobile'
+      - name: Build bb-app
+        shell: bash
+        working-directory: target
+        run: pnpm exec turbo run build --filter=bb-app --output-logs=errors-only
+      - name: Measure
+        shell: bash
+        run: |
+          mkdir -p out
+          node scratch/qa/measure.mjs target/packages/bb-app ${{ matrix.ref }}-fresh 5 fresh out
+          node scratch/qa/measure.mjs target/packages/bb-app ${{ matrix.ref }}-user 3 user out
